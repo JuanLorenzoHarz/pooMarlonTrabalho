@@ -8,5 +8,6 @@ public record ProdutoRequest(
         @Size(max = 500) String descricao,
         @NotNull @DecimalMin("0.01") BigDecimal preco,
         @NotNull @Min(0) Integer estoque,
-        Boolean ativo
+        Boolean ativo,
+        Long categoriaId
 ) {}

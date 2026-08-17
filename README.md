@@ -1,6 +1,6 @@
 # Loja Virtual — Backend Java (POO)
 
-Backend REST sem frontend para o trabalho de Programação Orientada a Objetos. O projeto parte da modelagem **Cliente -> Pedido -> Produto** e amplia o domínio com **Carrinho** e **Pagamento**.
+Backend REST sem frontend para o trabalho de Programação Orientada a Objetos. O sistema modela clientes, produtos, categorias, carrinho, pedidos, descontos, pagamentos, parcelamento e vendas.
 
 ## Tecnologias
 - Java 21
@@ -8,84 +8,132 @@ Backend REST sem frontend para o trabalho de Programação Orientada a Objetos. 
 - Spring Web
 - Spring Data JPA / Hibernate
 - Bean Validation
-- H2 em memória (padrão)
+- H2 em memória por padrão
 - PostgreSQL opcional
 - JUnit 5
 
-## Como executar
+## Executar
 ```bash
+mvn test
 mvn spring-boot:run
 ```
-A API sobe em `http://localhost:8080`. O H2 Console fica em `/h2-console`.
+API: `http://localhost:8080`
 
-Para PostgreSQL:
-```bash
-SPRING_PROFILES_ACTIVE=postgres DATABASE_URL=jdbc:postgresql://localhost:5432/lojavirtual DATABASE_USER=postgres DATABASE_PASSWORD=postgres mvn spring-boot:run
+## Catálogo e categorias
+### Categorias
+- `POST /api/categorias`
+- `GET /api/categorias`
+- `GET /api/categorias/{id}`
+- `PUT /api/categorias/{id}`
+- `DELETE /api/categorias/{id}` desativa a categoria
+
+Exemplo:
+```json
+{"nome":"Informática","descricao":"Periféricos e componentes","ativa":true}
 ```
 
-## Endpoints
-### Clientes
-- `POST /api/clientes` cria cliente
-- `GET /api/clientes` lista clientes
-- `GET /api/clientes/{id}` busca cliente
-- `PUT /api/clientes/{id}` atualiza cliente
-- `DELETE /api/clientes/{id}` exclui cliente
-
 ### Produtos
-- `POST /api/produtos` cria produto
-- `GET /api/produtos?apenasAtivos=true` lista produtos
-- `GET /api/produtos/{id}` busca produto
-- `PUT /api/produtos/{id}` atualiza produto
-- `DELETE /api/produtos/{id}` desativa produto
+- `POST /api/produtos`
+- `GET /api/produtos`
+- `GET /api/produtos/{id}`
+- `PUT /api/produtos/{id}`
+- `DELETE /api/produtos/{id}` desativa o produto
 
-### Carrinho
-- `GET /api/clientes/{clienteId}/carrinho`
-- `POST /api/clientes/{clienteId}/carrinho/itens`
-- `DELETE /api/clientes/{clienteId}/carrinho/itens/{produtoId}`
-- `DELETE /api/clientes/{clienteId}/carrinho`
+Produto com categoria:
+```json
+{"nome":"Teclado","descricao":"Teclado mecânico","preco":249.90,"estoque":10,"ativo":true,"categoriaId":1}
+```
 
-### Pedidos
+### Busca e filtros
+`GET /api/produtos/busca`
+
+Parâmetros opcionais:
+- `termo`: pesquisa em nome e descrição
+- `categoriaId`
+- `precoMin`
+- `precoMax`
+- `emEstoque=true`
+- `ativo=true|false`
+- `ordenarPor=nome|preco|estoque|id`
+- `direcao=asc|desc`
+
+Exemplo:
+```text
+/api/produtos/busca?termo=teclado&categoriaId=1&precoMin=100&precoMax=500&emEstoque=true&ordenarPor=preco&direcao=asc
+```
+
+## Cupons e descontos
+- `POST /api/cupons`
+- `GET /api/cupons`
+- `GET /api/cupons/{id}`
+- `PATCH /api/cupons/{id}?ativo=true&limiteUsos=100`
+
+Tipos: `PERCENTUAL` e `VALOR_FIXO`.
+
+Exemplo:
+```json
+{"codigo":"POO10","tipo":"PERCENTUAL","valor":10,"minimoPedido":100,"validade":"2026-12-31T23:59:59","limiteUsos":50,"ativo":true}
+```
+
+## Pedidos
 - `POST /api/pedidos`
 - `GET /api/pedidos`
-- `GET /api/pedidos?clienteId=1`
 - `GET /api/pedidos/{id}`
 - `PATCH /api/pedidos/{id}/status?status=ENVIADO`
 - `POST /api/pedidos/{id}/cancelamento`
 
-### Pagamento
+Pedido com cupom:
+```json
+{
+  "clienteId":1,
+  "itens":[{"produtoId":1,"quantidade":2}],
+  "frete":20.00,
+  "codigoCupom":"POO10"
+}
+```
+
+O pedido retorna `subtotal`, `desconto`, `frete`, `codigoCupom` e `total`.
+
+## Pagamento, juros e parcelas
 - `POST /api/pedidos/{pedidoId}/pagamento`
 - `GET /api/pedidos/{pedidoId}/pagamento`
+- `GET /api/pedidos/{pedidoId}/pagamento/simulacao?forma=CARTAO_CREDITO&parcelas=6`
 - `POST /api/pedidos/{pedidoId}/pagamento/aprovacao`
 - `POST /api/pedidos/{pedidoId}/pagamento/recusa`
 - `POST /api/pedidos/{pedidoId}/pagamento/reembolso`
 
-## Exemplos JSON
-Criar cliente:
+Exemplo:
 ```json
-{"nome":"Juan Lorenzo","cpf":"12345678901","email":"juan@example.com","endereco":"Rua Exemplo, 123"}
+{"forma":"CARTAO_CREDITO","parcelas":6}
 ```
-Criar produto:
-```json
-{"nome":"Teclado","descricao":"Teclado mecânico","preco":249.90,"estoque":10,"ativo":true}
-```
-Criar pedido:
-```json
-{"clienteId":1,"itens":[{"produtoId":1,"quantidade":2}],"frete":20.00}
-```
-Criar pagamento:
-```json
-{"forma":"PIX"}
-```
+
+Política implementada:
+- PIX, débito e boleto: pagamento à vista
+- cartão de crédito: 1 a 12 parcelas
+- 1 a 3 parcelas: 0% de juros
+- 4 a 6 parcelas: 1,5% ao mês
+- 7 a 12 parcelas: 2% ao mês
+- juros compostos durante a quantidade de parcelas
+
+O pagamento informa valor sem juros, juros, taxa mensal, valor final e valor de cada parcela.
+
+## Vendas
+São considerados vendas os pedidos em `PAGO`, `EM_PREPARACAO`, `ENVIADO` ou `ENTREGUE`.
+
+- `GET /api/vendas`
+- `GET /api/vendas?inicio=2026-08-01T00:00:00&fim=2026-08-31T23:59:59`
+- `GET /api/vendas/resumo`
+- `GET /api/vendas/resumo?inicio=2026-08-01T00:00:00&fim=2026-08-31T23:59:59`
+
+O resumo contém quantidade de vendas, quantidade de itens vendidos, faturamento e ticket médio.
 
 ## Regras principais
 - CPF e email de cliente não podem repetir.
-- Produto inativo não pode entrar em pedido.
-- Pedido verifica e baixa o estoque no momento da criação.
-- Cancelamento devolve os itens ao estoque.
-- Pedido entregue não pode ser cancelado.
-- Um pedido possui no máximo um pagamento.
-- Aprovar pagamento muda pedido `CRIADO` para `PAGO`.
-- Reembolso cancela o pedido e devolve o estoque.
-
-## Estrutura
-`domain` contém as classes/objetos; `repository` cuida da persistência; `service` concentra regras de negócio; `controller` expõe endpoints; `dto` valida entradas; `exception` padroniza erros.
+- Produtos podem ser classificados em categorias.
+- Produtos podem ser pesquisados e filtrados por vários critérios ao mesmo tempo.
+- Pedido baixa estoque ao ser criado e cancelamento repõe estoque.
+- Cupom pode ter validade, mínimo de compra e limite de usos.
+- Desconto nunca ultrapassa o subtotal dos produtos.
+- Apenas cartão de crédito aceita parcelas.
+- O endpoint de simulação permite consultar juros antes de criar o pagamento.
+- Venda exclui pedidos criados sem pagamento e pedidos cancelados.

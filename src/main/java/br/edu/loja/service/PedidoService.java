@@ -6,6 +6,7 @@ import br.edu.loja.exception.*;
 import br.edu.loja.repository.PedidoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -13,11 +14,13 @@ public class PedidoService {
     private final PedidoRepository repo;
     private final ClienteService clientes;
     private final ProdutoService produtos;
+    private final CupomDescontoService cupons;
 
-    public PedidoService(PedidoRepository repo, ClienteService clientes, ProdutoService produtos) {
+    public PedidoService(PedidoRepository repo, ClienteService clientes, ProdutoService produtos, CupomDescontoService cupons) {
         this.repo = repo;
         this.clientes = clientes;
         this.produtos = produtos;
+        this.cupons = cupons;
     }
 
     @Transactional
@@ -33,6 +36,10 @@ public class PedidoService {
             pedido.adicionarItem(new ItemPedido(pedido, produto, item.quantidade(), produto.getPreco()));
         }
 
+        if (r.codigoCupom() != null && !r.codigoCupom().isBlank()) {
+            BigDecimal desconto = cupons.aplicar(r.codigoCupom(), pedido.calcularSubtotal());
+            pedido.aplicarDesconto(r.codigoCupom().toUpperCase(), desconto);
+        }
         return repo.save(pedido);
     }
 

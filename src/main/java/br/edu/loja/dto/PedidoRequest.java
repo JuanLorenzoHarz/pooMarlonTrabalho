@@ -8,5 +8,6 @@ import java.util.List;
 public record PedidoRequest(
         @NotNull Long clienteId,
         @NotEmpty List<@Valid ItemRequest> itens,
-        @NotNull @DecimalMin("0.00") BigDecimal frete
+        @NotNull @DecimalMin("0.00") BigDecimal frete,
+        String codigoCupom
 ) {}

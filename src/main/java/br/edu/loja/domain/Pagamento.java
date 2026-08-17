@@ -2,6 +2,7 @@ package br.edu.loja.domain;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,7 +13,17 @@ public class Pagamento {
     @OneToOne(optional = false)
     private Pedido pedido;
     @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal valorSemJuros;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal valorJuros;
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal valor;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal valorParcela;
+    @Column(nullable = false, precision = 6, scale = 2)
+    private BigDecimal jurosPercentualMensal;
+    @Column(nullable = false)
+    private Integer parcelas;
     @Enumerated(EnumType.STRING) @Column(nullable = false)
     private FormaPagamento forma;
     @Enumerated(EnumType.STRING) @Column(nullable = false)
@@ -21,10 +32,17 @@ public class Pagamento {
     private LocalDateTime criadoEm = LocalDateTime.now();
 
     protected Pagamento() {}
-    public Pagamento(Pedido pedido, BigDecimal valor, FormaPagamento forma) {
+
+    public Pagamento(Pedido pedido, BigDecimal valorSemJuros, BigDecimal valorFinal, FormaPagamento forma,
+                     Integer parcelas, BigDecimal jurosPercentualMensal) {
         this.pedido = pedido;
-        this.valor = valor;
+        this.valorSemJuros = valorSemJuros.setScale(2, RoundingMode.HALF_UP);
+        this.valor = valorFinal.setScale(2, RoundingMode.HALF_UP);
+        this.valorJuros = this.valor.subtract(this.valorSemJuros).setScale(2, RoundingMode.HALF_UP);
         this.forma = forma;
+        this.parcelas = parcelas;
+        this.jurosPercentualMensal = jurosPercentualMensal;
+        this.valorParcela = this.valor.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
     }
 
     public void aprovar() {
@@ -42,7 +60,12 @@ public class Pagamento {
 
     public Long getId() { return id; }
     public Pedido getPedido() { return pedido; }
+    public BigDecimal getValorSemJuros() { return valorSemJuros; }
+    public BigDecimal getValorJuros() { return valorJuros; }
     public BigDecimal getValor() { return valor; }
+    public BigDecimal getValorParcela() { return valorParcela; }
+    public BigDecimal getJurosPercentualMensal() { return jurosPercentualMensal; }
+    public Integer getParcelas() { return parcelas; }
     public FormaPagamento getForma() { return forma; }
     public StatusPagamento getStatus() { return status; }
     public LocalDateTime getCriadoEm() { return criadoEm; }
